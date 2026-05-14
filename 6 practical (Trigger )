@@ -1,0 +1,62 @@
+# Trigger and Cursor
+
+(A) Create Employee and Audit Tables
+CREATE TABLE Employees (
+emp_id NUMBER PRIMARY KEY,
+emp_name VARCHAR2(50),
+department VARCHAR2(30),
+salary NUMBER(10,2)
+);
+
+CREATE TABLE Employee_Audit (
+audit_id NUMBER GENERATED ALWAYS AS IDENTITY,
+emp_id NUMBER,
+action_type VARCHAR2(10),
+old_salary NUMBER,
+new_salary NUMBER,
+action_date DATE
+);
+
+(B) Trigger for Audit Logging
+CREATE OR REPLACE TRIGGER trg_employee_audit
+AFTER INSERT OR UPDATE OR DELETE ON Employees
+FOR EACH ROW
+BEGIN
+IF INSERTING THEN
+INSERT INTO Employee_Audit(emp_id, action_type, new_salary, action_date)
+VALUES(:NEW.emp_id, 'INSERT', :NEW.salary, SYSDATE);
+ELSIF UPDATING THEN
+INSERT INTO Employee_Audit(emp_id, action_type, old_salary, new_salary,
+
+action_date)
+
+VALUES(:OLD.emp_id, 'UPDATE', :OLD.salary, :NEW.salary, SYSDATE);
+ELSIF DELETING THEN
+INSERT INTO Employee_Audit(emp_id, action_type, old_salary, action_date)
+VALUES(:OLD.emp_id, 'DELETE', :OLD.salary, SYSDATE);
+END IF;
+END;
+/
+
+(C) Cursor for Salary Increment
+DECLARE
+CURSOR c_emp IS
+SELECT emp_id, salary
+FROM Employees
+WHERE department = 'IT';
+v_emp_id Employees.emp_id%TYPE;
+v_salary Employees.salary%TYPE;
+BEGIN
+OPEN c_emp;
+LOOP
+
+FETCH c_emp INTO v_emp_id, v_salary;
+EXIT WHEN c_emp%NOTFOUND;
+UPDATE Employees
+SET salary = v_salary * 1.10
+WHERE emp_id = v_emp_id;
+END LOOP;
+CLOSE c_emp;
+DBMS_OUTPUT.PUT_LINE('Salary increment applied to IT department employees.');
+END;
+/
